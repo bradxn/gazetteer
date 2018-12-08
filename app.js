@@ -1,30 +1,21 @@
-const url = require('url');
-const http = require('http');
-const sqlite3 = require('sqlite3'); 
+const express = require('express');
+const sqlite3 = require('sqlite3');
 
-const hostname = '127.0.0.1';
 const port = 3000;
+const app = express();
 
-const server = http.createServer((req, res) => {
-    let requrl = url.parse(req.url, true);
-    if (requrl.pathname == "/gnis")
-    {
-        let results = search(res, requrl.query["q"]);
-    }
-    else
-    {
-        res.statusCode = 404;
-        res.setHeader('Content-Type', 'text/plain');
-        res.end("That's not here!");
-    }
-});
+app.get('/gnis', gnisHandler);
 
-server.listen(port, hostname, () => {
-  console.log(`Server running at http://${hostname}:${port}/`);
-});
+function gnisHandler(req, res){
+    gnisSearch(req.query.q, (err, rows) => {
+       res.send(JSON.stringify(rows, null, 4))
+    });
+}
 
+app.listen(port);
+
+//TODO: modulize the db code
 var db;
-
 function openDB()
 {
     if (!db)
@@ -42,26 +33,13 @@ function openDB()
     }
 }
 
-function search(res, q)
+function gnisSearch(q, callback)
 {
     openDB();
-    db.all(`SELECT * FROM National WHERE FEATURE_NAME LIKE '${q}%';`, [], (err, rows) => {
-        if (err)
-        {
-            console.log(`SELECT error ${err}`);
-            res.statusCode = 500;
-            res.setHeader('Content-Type', 'text/plain');
-            res.end(err);
-        }
-        else
-        {
-            // complete
-            let json = JSON.stringify(rows, null, 4);
-            res.statusCode = 200;
-            res.setHeader('Content-Type', 'text/plain');
-            res.end(json);
-        }
-    });
+
+    db.all(`SELECT * FROM National WHERE FEATURE_NAME LIKE '${q}%';`, [], callback);
+}
+
 
 /* This works too, but not as efficient when just returning everything...
     let results = [];
@@ -82,4 +60,3 @@ function search(res, q)
         res.end(json);
     });
 */
-}
