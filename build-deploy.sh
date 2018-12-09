@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 
-echo "Building $1"
 
+## $1 (the first argument to the script) must be the "tag" (friendly name) of the image
+## and run thusly (assuming gazetteer is our preferred tag name):
+## bash build-deploy.sh gazetterr
+echo "Building $1"
 
 ## Build the image locally. Executes the instructions in 'Dockerfile' 
 ## This "builds" the image into a local data store, not a flat file per se. 
@@ -29,8 +32,8 @@ docker-machine scp ./$1.tar sandbar2:/home/$1.tar
 ## and use the same machine level command to load that freshly copied file into the docker "space"
 docker-machine ssh sandbar2 docker load -i /home/$1.tar
 
-## then finally we actually rn the image.
-## This looks weird at first becuase now we are back to using the vanilla docker command (sans-MACHINE)
+## then finally we actually run the image.
+## This looks weird at first because now we are back to using the vanilla docker command (sans-MACHINE)
 ## We can do thiw now becuase of the exports above. Once those have been set (specifcially DOCKER_MACHINE_HOST) the context
 ## of our docker calls are actually set to that of the remote machine. 
 # This is also ehy I explicitly unset them at the end of this script. I think there's a better way but I've not yet fond it...
