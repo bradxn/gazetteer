@@ -5,6 +5,7 @@
   "main": "app.js",
   "scripts": {
     "start": "nodemon app.js",
+    "deploy": "bash build-deploy.sh gazetteer",
     "containerBuild": "docker image build -t gazetteer .",
     "containerRun": "docker container run -d --name web -p 8080:8080 gazetteer",
     "containerKill": "docker container kill <running id>",
