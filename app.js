@@ -6,13 +6,18 @@ const app = express();
 
 app.get('/gnis', gnisHandler);
 
-function gnisHandler(req, res){
+app.get('/', (req, res) => {
+    res.send("You've found nemo!");
+});
+
+app.listen(port);
+
+function gnisHandler(req, res)
+{
     gnisSearch(req.query.q, (err, rows) => {
        res.send(JSON.stringify(rows, null, 4))
     });
 }
-
-app.listen(port);
 
 //TODO: modulize the db code
 var db;
@@ -23,13 +28,7 @@ function openDB()
         db = new sqlite3.Database("test.db", (err) => {
             if (err)
                 console.log(`Can't open database ${err}`);
-            else
-                console.log('Database is open!');
         });
-    }
-    else
-    {
-        console.log("Database is already open");
     }
 }
 
