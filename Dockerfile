@@ -2,7 +2,7 @@ FROM alpine
 
 LABEL maintainer="brian@rosepoint.com"
 
-RUN apk add --update nodejs nodejs-npm python
+RUN apk add --update nodejs nodejs-npm
 
 COPY . /src
 
