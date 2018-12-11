@@ -2,7 +2,7 @@ const express = require('express');
 const sqlite3 = require('sqlite3');
 
 const port = 3000;
-const appVersion = 0.5;
+const appVersion = 0.56;
 const app = express();
 
 // Basically a liveness (cheap ping) endpoint (And a way to prove that a deployment worked :)) 
