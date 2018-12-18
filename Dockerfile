@@ -4,7 +4,9 @@ LABEL maintainer="brian@rosepoint.com"
 
 RUN apk add --update nodejs nodejs-npm
 
-COPY . /src
+COPY *.js /src/
+
+COPY *.json /src/
 
 WORKDIR  /src
 

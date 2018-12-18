@@ -8,7 +8,8 @@ export DOCKER_HOST="tcp://68.183.148.52:2376"
 export DOCKER_CERT_PATH="/Users/brian/.docker/machine/machines/sandbar2"
 export DOCKER_MACHINE_NAME="sandbar2"
 
-docker-compose up --build -d
+## NOTE: `docker stack up`is the shortcut to the deploy command. You'll see both in discussions
+docker stack deploy -c docker-compose.yml gazetteer-svc
 
 ## reset the context to the local machine
 unset DOCKER_TLS_VERIFY
