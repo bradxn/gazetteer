@@ -1,29 +1,13 @@
 # gazetteer
 
-Ran in the context of our running node to create the gnis-data volume on the host
-`docker volume create --name gnis-data` 
-
-Prove it with:
-`docker volume inspect gnis-data`
-[
-    {
-        "CreatedAt": "2018-12-15T15:50:43Z",
-        "Driver": "local",
-        "Labels": {},
-        "Mountpoint": "/var/lib/docker/volumes/gnis-data/_data",
-        "Name": "gnis-data",
-        "Options": {},
-        "Scope": "local"
-    }
-]
-
-had trouble connecting to sandbar until I found the rsa key in sandbar2_secrets.zip (did I make that? Dont recall...). Need to unzip the pair it and copy it (them) to 
-`/Users/brian/.docker/machine/machines/sandbar2/`
-I first tried `ssh-add` but as we know `ssh-add` and I do not get along
-
-Copied test.db over to the host node here:
-`docker-machine scp test.db sandbar2:/var/lib/docker/volumes/gnis-data/_data/test.db`
-
+- Install the [Docker daemon](https://www.docker.com/get-started) of your choice 
+- Copy the secrets (not checked in here) in your local machine:
+  -- i.e.: /Users/brian/.docker/machine/machines/sandbar2/<secrets>
+- Build an image onto the remote machine
+  -- *one way* to do it: (thias builds on the remote machine)
+  `eval $(docker-machine env sandbar2)` (loads the remote machine profile)
+  `docker image build -t gazetteer:b60 .` (builds *on to* the remote machine)
+  `docker stack deploy -c docker-compose.yml gazetteer-svc` (set proper build in .yml file. TODO: get the build into an env var)
 
 
 
