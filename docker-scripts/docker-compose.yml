@@ -1,0 +1,28 @@
+version: '3'
+services:
+  gazetteer:
+    # The next two are mutually exclusive. build for 'compose' image for 'stack deploy' (aka 'up')
+    # It's cool though that we can leave both here and use the same config with whichever
+    # compostion style we want. i.e. we can compose a stack (single machine) or a service (swarm). 
+    build: .
+    image: gazetteer:b59
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: "0.1"
+          memory: "50m"
+      restart_policy:
+        condition: on-failure
+    ports:
+      - "3000:3000"
+    networks:
+      - webnet
+    volumes:
+      - gnis-data:/gnis-data
+networks:
+  webnet:
+volumes:
+  gnis-data:
+    external: true
+

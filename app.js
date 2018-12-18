@@ -1,13 +1,22 @@
 const express = require('express');
 const sqlite3 = require('sqlite3');
+const os = require('os');
+
 
 const port = 3000;
-const appVersion = 0.56;
+const appVersion = 0.59;
 const app = express();
 
-// Basically a liveness (cheap ping) endpoint (And a way to prove that a deployment worked :)) 
+// TODO: Getting close to the time where I want to seperate the routes and handlers into their own files
 app.get('/version', (req, res) => {
-    res.send(JSON.stringify(appVersion));
+    const now = new Date();
+    res.send(JSON.stringify(
+        {
+            "build": appVersion,
+            "host": os.hostname + '',
+            "requestTime": now.toTimeString(),
+            "user": os.userInfo.username
+        }));
 });
 
 app.get('/gnis', gnisHandler);
@@ -31,7 +40,7 @@ function openDB()
 {
     if (!db)
     {
-        db = new sqlite3.Database("test.db", (err) => {
+        db = new sqlite3.Database("/gnis-data/test.db", (err) => {
             if (err)
                 console.log(`Can't open database ${err}`);
         });

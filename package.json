@@ -6,7 +6,7 @@
   "scripts": {
     "start": "nodemon app.js",
     "deploy": "bash build-deploy.sh gazetteer",
-    "containerBuild": "docker image build -t gazetteer .",
+    "containerBuild": "docker image build -t gazetteer-min .",
     "containerRun": "docker container run -d --name web -p 8080:8080 gazetteer",
     "containerKill": "docker container kill <running id>",
     "containerShowHistory": "docker history gazetteer",
@@ -15,7 +15,7 @@
     "swarmInit": "docker swarm init",
     "dockerJoinToken": "docker swarm join-token (manager | worker)",
     "dockerList": "docker image ls",
-    "runThisImage": "docker container run -it -p 3000:3000 --rm gazetteer"
+    "runThisImage": "docker container run -it -p 3000:3000 --rm gazetteer-min"
   },
   "repository": {
     "type": "git",
