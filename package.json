@@ -4,7 +4,7 @@
   "description": "The Gazetteer",
   "main": "app.js",
   "scripts": {
-    "start": "nodemon app.js",
+    "start": "GNIS_DATA=./data-loader/test.db nodemon app.js",
     "deploy": "bash build-deploy.sh gazetteer",
     "containerBuild": "docker image build -t gazetteer-min .",
     "containerRun": "docker container run -d --name web -p 8080:8080 gazetteer",
