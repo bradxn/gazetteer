@@ -29,7 +29,9 @@
   "homepage": "https://github.com/bradxn/gazetteer#readme",
   "dependencies": {
     "express": "^4.16.4",
+    "express-ws": "^4.0.0",
     "nodemon": "^1.18.7",
-    "sqlite": "^3.0.0"
+    "sqlite": "^3.0.0",
+    "ws": "^6.1.2"
   }
 }
