@@ -20,6 +20,156 @@ function GetAndConvertCurrentFile(station_id, year)
 //GetAndConvertTideFile('9440574', 2019);
 //ConvertTideFile(process.stdin);
 
+function GetTideStationList()
+{
+    request(
+        {
+            url: 'https://tidesandcurrents.noaa.gov/mdapi/latest/webapi/tidepredstations.json',
+            json: true
+        },
+        function(error, response, json)
+        {
+            console.log(JSON.stringify(json, null, 4));
+        }
+    );
+}
+
+GetTideStationList();
+
+let noaa_current_regions = 
+[
+    {
+        name: 'Caribbean',
+        g: 443
+    },
+    {
+        name: 'East Coast',
+        g: 444
+    },
+    {
+        name: 'Gulf of Mexico',
+        g: 445
+    },
+    {
+        name: 'Pacific',
+        g: 446
+    },
+    {
+        name: 'West Coast',
+        g: 447
+    }
+];
+
+request.get("https://tidesandcurrents.noaa.gov/noaacurrents/Stations?g=446", function(error, response, body) {
+    let stations = GetCurrentStationList(body);
+    console.log(JSON.stringify(stations, null, 4));
+    console.log(`${stations.length} stations`);
+});
+
+function GetCurrentStationList(file)
+{
+    let stations = [];
+
+    let ich = 0;
+	for (;;)
+	{
+        let station = {};
+		var ichStart;
+		
+        ich = file.indexOf("onmouseover='map(", ich);
+		if (ich < 0)
+            break;
+        
+        ich = file.lastIndexOf('<', ich);
+        if (ich < 0)
+            break;
+
+        if (file.substr(ich, 3) == "<a ")
+		{
+            ich = file.indexOf("<a href='Predictions?id=", ich);
+            if (ich < 0)
+                break;
+			ich += 24;
+			ichStart = ich;
+			ich = file.indexOf("'", ich);
+            console.assert(ich >= 0);
+			station.urlid = file.substr(ichStart, ich - ichStart);
+		}
+		else
+		{
+			console.assert(file.substr(ich, 5) == "<div ");
+		}
+
+		ich = file.indexOf('>', ich);
+		console.assert(ich >= 0);
+		ich += 1;
+		ichStart = ich;
+		ich = file.indexOf('<', ich);
+		console.assert(ich >= 0);
+		station.name = file.substr(ichStart, ich - ichStart);
+
+		ich = file.indexOf("hidden-phone", ich);
+		console.assert(ich >= 0);
+		ich = file.indexOf('>', ich);
+		console.assert(ich >= 0);
+		ich += 1;
+		ichStart = ich;
+		ich = file.indexOf('<', ich);
+		console.assert(ich >= 0);
+		station.id = file.substr(ichStart, ich - ichStart);
+
+		ich = file.indexOf("hidden-phone", ich);
+		console.assert(ich >= 0);
+		ich = file.indexOf('>', ich);
+		console.assert(ich >= 0);
+		ich += 1;
+		ichStart = ich;
+		ich = file.indexOf('<', ich);
+		console.assert(ich >= 0);
+		let strLat = file.substr(ichStart, ich - ichStart);
+
+		ich = file.indexOf("hidden-phone", ich);
+		console.assert(ich >= 0);
+		ich = file.indexOf('>', ich);
+		console.assert(ich >= 0);
+		ich += 1;
+		ichStart = ich;
+		ich = file.indexOf('<', ich);
+		console.assert(ich >= 0);
+		let strLon = file.substr(ichStart, ich - ichStart);
+
+		ich = file.indexOf("hidden-phone", ich);
+		console.assert(ich >= 0);
+		ich = file.indexOf('>', ich);
+		console.assert(ich >= 0);
+		ich += 1;
+		if (file.substr(ich, 3) == "<b>")
+			ich += 3;
+		ichStart = ich;
+		ich = file.indexOf('<', ich);
+		console.assert(ich >= 0);
+		station.type = file.substr(ichStart, ich - ichStart);
+
+		let lat = parseFloat(strLat);
+		let ch = strLat[strLat.length - 1];
+		console.assert(ich >= 0);
+		if (ch == 'S')
+			lat = -lat;
+		let lon = parseFloat(strLon);
+		ch = strLon[strLon.length - 1];
+		console.assert(ich >= 0);
+		if (ch == 'W')
+            lon = -lon;
+        
+        station.lat = lat;
+        station.lon = lon;
+
+        stations.push(station);
+	}
+
+	return stations;
+}
+
 function ConvertTideFile(inp)
 	{
 	var bTideFile = false;
