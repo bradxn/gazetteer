@@ -1,5 +1,25 @@
 const readline = require('readline');
 const request = require('request');
+const sqlite3 = require('sqlite3');
+
+const SQL_INIT_DB = `
+CREATE TABLE IF NOT EXISTS TideStations (id TEXT UNIQUE, info TEXT);
+CREATE TABLE IF NOT EXISTS CurrentStations (id TEXT UNIQUE, info TEXT);
+`;
+
+var db;
+function openDB()
+{
+	if (!db)
+	{
+        db = new sqlite3.Database(GNIS_DATA, (err) => {
+            if (err)
+                console.log(`Can't open database (${GNIS_DATA}) ${err}`);
+		});
+		db.run(SQL_INIT_DB);
+        console.log(db);
+    }
+}
 
 function GetAndConvertTideFile(station_id, year)
 {
