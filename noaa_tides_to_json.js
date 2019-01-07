@@ -2,24 +2,80 @@ const readline = require('readline');
 const request = require('request');
 const sqlite3 = require('sqlite3');
 
+const TIDE_DATA = "tides.db";
+
 const SQL_INIT_DB = `
-CREATE TABLE IF NOT EXISTS TideStations (id TEXT UNIQUE, info TEXT);
-CREATE TABLE IF NOT EXISTS CurrentStations (id TEXT UNIQUE, info TEXT);
+CREATE TABLE IF NOT EXISTS TideStations (id TEXT UNIQUE, properties TEXT);
+CREATE TABLE IF NOT EXISTS CurrentStations (id TEXT UNIQUE, properties TEXT);
 `;
 
 var db;
+
 function openDB()
 {
 	if (!db)
 	{
-        db = new sqlite3.Database(GNIS_DATA, (err) => {
-            if (err)
-                console.log(`Can't open database (${GNIS_DATA}) ${err}`);
-		});
-		db.run(SQL_INIT_DB);
-        console.log(db);
-    }
+		db = new sqlite3.Database(TIDE_DATA, dberr);
+		db.exec(SQL_INIT_DB);
+	}
 }
+
+function dberr(err)
+{
+	if (err)
+		console.log(`dberr: ${err}`);
+}
+
+openDB();
+//GetTideStationList();
+//GetCurrentStationList();
+
+GetTideStations();
+
+function GetTideStations()
+{
+	let stations = [];
+
+	let featureCollection = {
+		type: 'FeatureCollection',
+		features: stations
+	};
+
+	db.each('SELECT properties FROM TideStations;',
+		(err, row) =>
+		{
+			if (err)
+				return;
+			
+			let json = JSON.parse(row.properties);
+
+			let station = {
+				id: `noaa_tides-${json.stationId}`,
+				type: 'Feature',
+				featureType: 'tide-station',
+				featureCat: 'conditions',
+				geometry: {
+					type: 'Point',
+					coordinates: [ json.lon, json.lat ]
+				},
+				properties: {
+					station_id: json.stationId,
+					name: json.etidesStnName,
+					region: json.region,
+					stationType: json.stationType,
+					source: 'NOAA'
+				}
+			};
+
+			stations.push(station);
+		},
+		() => // complete
+		{
+			console.log(JSON.stringify(featureCollection, null, 4));
+		}
+	);
+}
+
 
 function GetAndConvertTideFile(station_id, year)
 {
@@ -35,84 +91,95 @@ function GetAndConvertCurrentFile(station_id, year)
 	ConvertTideFile(req);
 }
 
-//tests...
-//GetAndConvertCurrentFile('PCT1951_1', 2019);
-//GetAndConvertTideFile('9440574', 2019);
-//ConvertTideFile(process.stdin);
-
 function GetTideStationList()
 {
-    request(
-        {
-            url: 'https://tidesandcurrents.noaa.gov/mdapi/latest/webapi/tidepredstations.json',
-            json: true
-        },
-        function(error, response, json)
-        {
-            console.log(JSON.stringify(json, null, 4));
-        }
-    );
+	request(
+		{
+			url: 'https://tidesandcurrents.noaa.gov/mdapi/latest/webapi/tidepredstations.json',
+			json: true
+		},
+		function(error, response, json)
+		{
+				let stations = json.stationList;
+
+				db.exec('BEGIN TRANSACTION;', dberr);
+
+				for (let i = 0; i < stations.length; i += 1)
+				{
+					let station = stations[i];
+
+					db.run('INSERT OR REPLACE INTO TideStations (id, properties) VALUES ($id, $properties);',
+						{ $id: station.stationId, $properties: JSON.stringify(station) }, dberr);
+				}
+
+				db.exec('END TRANSACTION;', dberr);
+		}
+	);
 }
 
-GetTideStationList();
-
-let noaa_current_regions = 
-[
-    {
-        name: 'Caribbean',
-        g: 443
-    },
-    {
-        name: 'East Coast',
-        g: 444
-    },
-    {
-        name: 'Gulf of Mexico',
-        g: 445
-    },
-    {
-        name: 'Pacific',
-        g: 446
-    },
-    {
-        name: 'West Coast',
-        g: 447
-    }
-];
-
-request.get("https://tidesandcurrents.noaa.gov/noaacurrents/Stations?g=446", function(error, response, body) {
-    let stations = GetCurrentStationList(body);
-    console.log(JSON.stringify(stations, null, 4));
-    console.log(`${stations.length} stations`);
-});
-
-function GetCurrentStationList(file)
+function GetCurrentStationList()
 {
-    let stations = [];
+	let noaa_current_regions = 
+	[
+		{
+			name: 'Caribbean',
+			g: 443
+		},
+		{
+			name: 'East Coast',
+			g: 444
+		},
+		{
+			name: 'Gulf of Mexico',
+			g: 445
+		},
+		{
+			name: 'Pacific',
+			g: 446
+		},
+		{
+			name: 'West Coast',
+			g: 447
+		}
+	];
 
-    let ich = 0;
+	for (let i = 0; i < noaa_current_regions.length; i += 1)
+	{
+		request.get(`https://tidesandcurrents.noaa.gov/noaacurrents/Stations?g=${noaa_current_regions[i].g}`,
+			function(error, response, body) {
+				ParseCurrentStationList(body);
+			}
+		);
+	}
+}
+
+function ParseCurrentStationList(file)
+{
+	db.exec('BEGIN TRANSACTION;', dberr);
+
+	let ich = 0;
 	for (;;)
 	{
-        let station = {};
+		let station = {};
 		var ichStart;
 		
-        ich = file.indexOf("onmouseover='map(", ich);
+		ich = file.indexOf("onmouseover='map(", ich);
 		if (ich < 0)
-            break;
-        
-        ich = file.lastIndexOf('<', ich);
-        if (ich < 0)
-            break;
+			break;
+		
+		ich = file.lastIndexOf('<', ich);
+		if (ich < 0)
+			break;
 
-        if (file.substr(ich, 3) == "<a ")
+		if (file.substr(ich, 3) == "<a ")
 		{
-            ich = file.indexOf("<a href='Predictions?id=", ich);
-            if (ich < 0)
-                break;
+			ich = file.indexOf("<a href='Predictions?id=", ich);
+			if (ich < 0)
+				break;
 			ich += 24;
 			ichStart = ich;
 			ich = file.indexOf("'", ich);
-            console.assert(ich >= 0);
+			console.assert(ich >= 0);
 			station.urlid = file.substr(ichStart, ich - ichStart);
 		}
 		else
@@ -179,19 +246,20 @@ function GetCurrentStationList(file)
 		ch = strLon[strLon.length - 1];
 		console.assert(ich >= 0);
 		if (ch == 'W')
-            lon = -lon;
-        
-        station.lat = lat;
-        station.lon = lon;
+			lon = -lon;
+		
+		station.lat = lat;
+		station.lon = lon;
 
-        stations.push(station);
+		db.run('INSERT OR REPLACE INTO CurrentStations (id, properties) VALUES ($id, $properties);',
+			{ $id: station.urlid, $properties: JSON.stringify(station) }, dberr);
 	}
-
-	return stations;
+	
+	db.exec('END TRANSACTION;', dberr);
 }
 
 function ConvertTideFile(inp)
-	{
+{
 	var bTideFile = false;
 	var bCurrentFile = false;
 	var bInHeader = true;
