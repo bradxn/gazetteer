@@ -7,6 +7,14 @@ const TIDE_DATA = "tides.db";
 const SQL_INIT_DB = `
 CREATE TABLE IF NOT EXISTS TideStations (id TEXT UNIQUE, properties TEXT);
 CREATE TABLE IF NOT EXISTS CurrentStations (id TEXT UNIQUE, properties TEXT);
+
+CREATE TABLE IF NOT EXISTS Features (fid INTEGER PRIMARY KEY, fcat TEXT, ftype TEXT, gtype TEXT, props TEXT);
+CREATE VIRTUAL TABLE FeatureTree USING rtree(fid, west, east, south, north);
+CREATE VIRTUAL TABLE FeatureText USING fts5(name, title, body);
+CREATE TRIGGER IF NOT EXISTS TrgDelFeature AFTER DELETE ON Features BEGIN 
+	DELETE FROM FeatureText WHERE rowid = OLD.fid; 
+	DELETE FROM FeatureTree WHERE fid = OLD.fid;
+END
 `;
 
 var db;
@@ -16,7 +24,7 @@ function openDB()
 	if (!db)
 	{
 		db = new sqlite3.Database(TIDE_DATA, dberr);
-		db.exec(SQL_INIT_DB);
+		db.exec(SQL_INIT_DB, (err)=>{ /*if (err) console.log(err);*/ });
 	}
 }
 
@@ -30,15 +38,115 @@ openDB();
 //GetTideStationList();
 //GetCurrentStationList();
 
-GetTideStations();
+//GetTideStations();
 
-function GetTideStations()
+//UpdateFeatures();
+
+SearchFeatures('friday');
+
+function SearchFeatures(q)
 {
-	let stations = [];
+	let features = [];
 
 	let featureCollection = {
 		type: 'FeatureCollection',
-		features: stations
+		features: features
+	};
+
+	db.each('SELECT * FROM FeatureText, Features WHERE FeatureText.rowid = Features.fid AND title MATCH $q;',
+		{
+			$q: q
+		},
+		(err, row) =>
+		{
+			if (err)
+				return;
+			
+			let feature = MakeGeoFeature(row.props);
+			features.push(feature);
+		},
+		() => // complete
+		{
+			console.log(JSON.stringify(featureCollection, null, 4));
+		}
+	);
+}
+
+function UpdateFeatures()
+{
+	db.exec('BEGIN TRANSACTION;');
+
+	db.each('SELECT properties FROM TideStations;',
+		(err, row) =>
+		{
+			if (err)
+				return;
+			
+			let station = JSON.parse(row.properties);
+
+			db.run('INSERT INTO Features (fcat, ftype, gtype, props) VALUES ($fcat, $ftype, $gtype, $props);',
+				{
+					$fcat: 'conditions',
+					$ftype: 'tide_station',
+					$gtype: 'point',
+					$props: row.properties
+				},
+				function(err) {
+					if (!err)
+					{
+						let fid = this.lastID;
+						db.run('INSERT INTO FeatureText (rowid, name, title) VALUES ($fid, $name, $title);',
+							{
+								$fid: fid,
+								$name: station.stationId,
+								$title: station.etidesStnName
+							}
+						);
+					}
+				}
+			);
+
+			// TODO: Also need to insert the point into FeatureTree
+		},
+		() => // complete
+		{
+			db.exec('END TRANSACTION;');
+		}
+	);
+}
+
+function MakeGeoFeature(properties)
+{
+	let json = JSON.parse(properties);
+
+	let station = {
+		id: `noaa_tides-${json.stationId}`,
+		type: 'Feature',
+		featureType: 'tide-station',
+		featureCat: 'conditions',
+		geometry: {
+			type: 'Point',
+			coordinates: [ json.lon, json.lat ]
+		},
+		properties: {
+			station_id: json.stationId,
+			name: json.etidesStnName,
+			region: json.region,
+			stationType: json.stationType,
+			source: 'NOAA'
+		}
+	};
+
+	return station;
+}
+
+function GetTideStations()
+{
+	let features = [];
+
+	let featureCollection = {
+		type: 'FeatureCollection',
+		features: features
 	};
 
 	db.each('SELECT properties FROM TideStations;',
@@ -47,27 +155,8 @@ function GetTideStations()
 			if (err)
 				return;
 			
-			let json = JSON.parse(row.properties);
-
-			let station = {
-				id: `noaa_tides-${json.stationId}`,
-				type: 'Feature',
-				featureType: 'tide-station',
-				featureCat: 'conditions',
-				geometry: {
-					type: 'Point',
-					coordinates: [ json.lon, json.lat ]
-				},
-				properties: {
-					station_id: json.stationId,
-					name: json.etidesStnName,
-					region: json.region,
-					stationType: json.stationType,
-					source: 'NOAA'
-				}
-			};
-
-			stations.push(station);
+			let feature = MakeGeoFeature(row.properties);
+			features.push(feature);
 		},
 		() => // complete
 		{
