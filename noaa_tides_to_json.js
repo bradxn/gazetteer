@@ -1,20 +1,13 @@
 const readline = require('readline');
 const request = require('request');
 const sqlite3 = require('sqlite3');
+const features = require('./features');
 
 const TIDE_DATA = "tides.db";
 
 const SQL_INIT_DB = `
 CREATE TABLE IF NOT EXISTS TideStations (id TEXT UNIQUE, properties TEXT);
 CREATE TABLE IF NOT EXISTS CurrentStations (id TEXT UNIQUE, properties TEXT);
-
-CREATE TABLE IF NOT EXISTS Features (fid INTEGER PRIMARY KEY, fcat TEXT, ftype TEXT, gtype TEXT, props TEXT);
-CREATE VIRTUAL TABLE FeatureTree USING rtree(fid, west, east, south, north);
-CREATE VIRTUAL TABLE FeatureText USING fts5(name, title, body);
-CREATE TRIGGER IF NOT EXISTS TrgDelFeature AFTER DELETE ON Features BEGIN 
-	DELETE FROM FeatureText WHERE rowid = OLD.fid; 
-	DELETE FROM FeatureTree WHERE fid = OLD.fid;
-END
 `;
 
 var db;
@@ -42,39 +35,9 @@ openDB();
 
 //UpdateFeatures();
 
-SearchFeatures('friday');
-
-function SearchFeatures(q)
-{
-	let features = [];
-
-	let featureCollection = {
-		type: 'FeatureCollection',
-		features: features
-	};
-
-	db.each('SELECT * FROM FeatureText, Features WHERE FeatureText.rowid = Features.fid AND title MATCH $q;',
-		{
-			$q: q
-		},
-		(err, row) =>
-		{
-			if (err)
-				return;
-			
-			let feature = MakeGeoFeature(row.props);
-			features.push(feature);
-		},
-		() => // complete
-		{
-			console.log(JSON.stringify(featureCollection, null, 4));
-		}
-	);
-}
-
 function UpdateFeatures()
 {
-	db.exec('BEGIN TRANSACTION;');
+	features.BeginUpdate();
 
 	db.each('SELECT properties FROM TideStations;',
 		(err, row) =>
@@ -83,7 +46,21 @@ function UpdateFeatures()
 				return;
 			
 			let station = JSON.parse(row.properties);
-
+			
+			features.UpdateFeature("noaa_tides", {
+				fcat: 'conditions',
+				ftype: 'tide_station',
+				gtype: 'point',
+				geometry: [ station.lon, station.lat],
+				properties: {
+					name: station.stationId,
+					title: station.etidesStnName,
+					region: station.region,
+					stationType: station.stationType,
+					source: 'NOAA'
+				}
+			});
+/*
 			db.run('INSERT INTO Features (fcat, ftype, gtype, props) VALUES ($fcat, $ftype, $gtype, $props);',
 				{
 					$fcat: 'conditions',
@@ -105,12 +82,11 @@ function UpdateFeatures()
 					}
 				}
 			);
-
-			// TODO: Also need to insert the point into FeatureTree
+*/
 		},
 		() => // complete
 		{
-			db.exec('END TRANSACTION;');
+			features.EndUpdate();
 		}
 	);
 }
@@ -129,8 +105,8 @@ function MakeGeoFeature(properties)
 			coordinates: [ json.lon, json.lat ]
 		},
 		properties: {
-			station_id: json.stationId,
-			name: json.etidesStnName,
+			name: json.stationId,
+			title: json.etidesStnName,
 			region: json.region,
 			stationType: json.stationType,
 			source: 'NOAA'
