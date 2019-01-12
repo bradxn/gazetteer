@@ -35,6 +35,28 @@ openDB();
 
 //UpdateFeatures();
 
+function init(app)
+{
+	app.get('/noaa_tides', (req, res) => {
+		switch (req.query.cmd)
+		{
+		case 'upd_tides':
+			GetTideStationList();
+			break;
+	
+		case 'upd_currents':
+			GetCurrentStationList();
+			break;
+		
+		case 'upd_features':
+			UpdateFeatures();
+			break;
+		}
+
+		res.send("Working on it...");
+	});
+}
+
 function UpdateFeatures()
 {
 	features.BeginUpdate();
@@ -499,3 +521,6 @@ function ConvertTideFile(inp)
 		console.log(JSON.stringify(obj, null, 4));
 	});
 }
+
+exports.default = init;
+exports.init = init;

@@ -10,6 +10,8 @@ const APP_VERSION = process.env.APP_VERSION || 0.59;
 const app = express();
 var expressWs = require('express-ws')(app);
 
+require("./noaa_tides_to_json").init(app);
+
 app.get('/version', (req, res) => {
     const now = new Date();
     res.send(JSON.stringify(
